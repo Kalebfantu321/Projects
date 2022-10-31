@@ -1,0 +1,385 @@
+
+#!/bin/bash
+
+
+if [ -z "$1" ]; then #check to see if fucntion was supplied commandline arguments to see if the program will ask for user input or not.
+	interactive="Y"
+else
+	interactive="N"
+fi
+
+
+if [ $interactive = "N" ]; then #if script run in non-interactive then set params equal to paramline args.
+	file="$1"
+	paramTwo="$2"
+	paramThree="$3"
+	paramFour="$4"
+	paramFive="$5"
+	paramSix="$6"
+fi
+
+
+create()
+{
+	if [ -f $file ]; then #check to see if file already exists.
+		echo This file already exists
+		return 1
+	else
+		if [ $interactive = "Y" ]; then
+			read -p "What is your header? Leave blank for 'Untitled DB'. " paramThree
+		fi
+
+		if [ -n "$paramThree" ]; then #if not header given then put in untitled database as header.
+			header="$paramThree"
+
+		else
+			header="Untitled DB" 
+		fi
+
+		touch  $file #create file.
+		echo  "$header" >> $file #push header into newly created file.
+		echo New database `$file`
+		return 0
+	fi
+}
+
+insert()
+{
+	if [ ! -f "$file" ]; then #check to make sure file exists.
+		echo file does not exist.
+		return 1
+	fi
+	if [ $interactive = "Y" ]; then #if running in interactive ask for user input for car vals.
+		read -p "What is your car make? " paramThree
+		read -p "What is your car model? " paramFour
+		read -p "what is your car year? " paramFive
+		read -p "What is your car color? " paramSix
+	fi
+	local carMake=$paramThree
+	local carModel=$paramFour
+	local carYear=$paramFive
+	local carColor=$paramSix
+
+	if [[ -z "$carMake" || -z "$carModel" || -z "$carYear" || -z "$carColor" ]]
+			 then #check if values were entered.
+		echo one or more car values not given
+		return 1
+	else
+
+		if [ `echo "$carMake"", ""$carModel"", ""$carYear"", ""$carColor" | wc -c` -gt 186 ]
+			 then  #checks if values were entered
+	       		echo Record does fit on the line.
+	       		return 1
+	       	else
+
+
+			echo "$carMake"", ""$carModel"", ""$carYear"", ""$carColor" >> $file #push car record into file.
+			echo Successfully added a record to the database
+			return 0
+		fi
+	fi
+
+
+}
+
+display()
+{
+	if [ ! -f $file  ]
+		 then #make sure file exists.
+		echo file does not exist
+		return 1
+	fi
+	if [ `cat $file | wc -l` -le 1 ]
+		 then #check to make sure file actually has records in it.
+		echo file has no records
+		return 1
+	fi
+		if [ $interactive = "Y" ]
+		 then #if running in nteractive ask the user how they would like to display elements in file.
+		read -p "Would you like to display (all), (single), or (range) of values? " paramThree
+	fi
+
+	local amount=$paramThree
+
+	if [[ "$amount" = "single" && $interactive = "Y" ]]
+		 then #if running in interactive with single display ask what line number user would like to output.
+		read -p "What line would you like to display? " paramFour
+	fi
+
+	if [[ "$amount" = "range" && $interactive = "Y" ]]
+		 then #if running in interactive and with range display ask the user the two ends of that range.
+		read -p "What is the first line you would like to look at? " paramFour
+		read -p "What is the line you want to read to? " paramFive
+	fi
+
+	firstLine=$((paramFour + 1)) #since header is not a record add one to provided lines to start with the record on line two.
+	secondLine=$((paramFive + 1))
+	numLine=`cat $file | wc -l` #set a variable to number of lines in file.
+
+	if [ $firstLine -gt $numLine ]
+		 then #check to make sure the there is a record on line provided by user.
+		echo no record on provided file line
+		return 1
+	fi
+	if [ $secondLine -gt $numLine ]
+		 then
+		echo no record on provided second line
+		return 1
+	fi
+
+	if [ "$amount" = "all" ]
+		 then #if all then just cat file.
+
+		cat $file
+		return 0
+
+	elif [ "$amount" = "single" ]; then #if single display given line number if none given then spit out error.
+		if [ -z "$paramFour"  ]; then
+			echo no line number given
+			return 	1
+		else
+			sed -n ""$firstLine"p" "$file"  
+			return 0
+		fi
+
+	elif [ "$amount" = "range" ]
+		 then #if range display then display values in that range unless no value given on one of the line numbers or if line 1 is greater than 2.
+		if [ -z "$paramFour"  ]; then
+			echo first line number not given
+			return 	1
+		elif [ -z "$paramFive" ]; then
+			echo second line number not given
+			return 1
+		elif [ $secondLine -lt $firstLine ]; then
+			echo cant have second val greater than first
+			return 1
+		else
+			sed -n ""$firstLine,$secondLine"p" "$file"
+			return 0
+		fi
+	else
+
+		echo not valid parameter for display #if non valid param given to display spit out error.
+		return 1
+	fi
+}
+delete()
+{
+
+	if [ ! -f "$file" ]; then #check if file exists.
+		echo the file `$file` does not exist
+		return 1
+	fi
+	if [ `cat $file | wc -l` -le 1 ]; then #make sure file has records.
+		echo file has no records
+		return 1
+	fi
+
+	if [ $interactive = "Y" ]; then #if interactive ask user how they want to delete.
+		read -p "Would you like to display (all), (single), or (range) of values? " paramThree
+
+	fi
+	local amount=$paramThree
+
+	if [[ "$amount" = "single" && $interative = "Y" ]]; then #if single selected and interactive ask user what line to delete.
+		read -p "What line would you like to delete? " paramFour
+	fi
+
+	if [[ "$amount" = "range" && $interactive = "Y" ]]; then #if range selected and interactive ask user what range of vals should be deleted.
+		read -p "What is the first line you would like to delete? " paramFour
+		read -p "What is the line you want to delete to? " paramFive
+	fi
+	firstLine=$((paramFour + 1)) #add one so header can't be accessed.
+	secondLine=$((paramFive + 1))
+	numLine=`cat $file | wc -l` #get number of lines in file.
+
+	if [$firstLine -eq 1 ]; then #make sure user dosen't try to delete 0th record.
+		cho "can't delete 0th record"
+		return 1
+	fi
+	if [ $firstLine -gt $numLine ]; then #checks if there is a record on the provided line.
+		echo no record on provided file line
+		return 1
+	fi
+	if [ $secondLine -gt $numLine ]; then #make sure there is a record on the provided line.
+		echo no record on provided second line
+		return 1
+	fi
+
+	if [ "$amount" = "all" ]; then #if all delete evcerything except header then tell the user how mnay reocrds were deleted.
+
+		linesleft=`sed ""1"!d" "$file" | wc -l`
+		linesbefore=`cat "$file" | wc -l`
+		count=$((linesbefore - linesleft))
+		sed -i ""1"!d" "$file"
+		if [ $count -eq 1 ]; then
+			echo 1 record deleted
+			return 0
+		else
+			echo -n $count
+			echo " records deleted"
+			return 0
+		fi
+
+	elif [ "$amount" = "single" ]; then #make sure line number given if it is then delete specified val.
+		if [ -z "$paramFour"   ]; then
+			echo No line number given
+			return 1
+		else
+			sed -i ""$firstLine"d" "$file"
+			echo 1 record deleted
+			return 0
+		fi
+
+
+	elif [ "$amount" = "range" ]; then #make sure line numbers are given then if they are delete specified range of vals and thhen tell user how many line were deleted.
+		if [ -z "$paramFour"  ]; then
+			echo first line value not given
+			return 	1
+		elif [ -z "$paramFive" ]; then
+
+			echo second line number not given
+			return 1
+		else
+			if [ $secondLine -lt $firstLine ]; then
+				echo cant have second value greater than first
+				return 1
+			fi
+
+			linesleft=`sed  ""$firstLine,$secondLine"d" "$file" | wc -l`
+			linesbefore=`cat "$file" | wc -l`
+			count=$((linesbefore - linesleft))
+			sed -i ""$firstLine,$secondLine"d" "$file"
+			if [ $count -eq 1 ]; then
+				echo  record deleted
+				return 0
+			else
+				echo -n $count
+				echo " records deleted"
+				return 0
+			fi
+		fi
+	else
+		echo not valid parameter #if no param given to delete then print error.
+		return 1
+	fi
+}
+count()
+{
+	if [ ! -f "$file" ]
+		 then #make sure file exists.
+		echo `$file` does not exsist
+		return 1
+	fi
+	lineAmount=`cat "$file" | wc -l` #get total lines in file then subtract one to get rid of header and display amount of records in file.
+	display=$((lineAmount - 1))
+	if [ $display -eq 0 ]; then
+		echo file does not have any records
+		return 1
+	else
+		echo $display
+		return 0
+	fi
+
+}
+if [[ ! -z "$7" && $interactive = "N" ]]
+	 then #if a 7th param is provided then spit out error.
+	echo to many parameters
+	exit 1
+fi
+loopBack="yes" #val to check in while loop.
+while [ $loopBack = "yes" ]; do #while user inputs yes keep running this loop
+	if [ $interactive = "Y" ]; then #get users file and what they would like to do with file.
+		read -p "What is your file? " file
+		read -p "What would you like to do (create), (insert), (delete), (display), or (count)? " paramTwo
+	fi
+
+	if [ "$paramTwo" = "create" ]; then #if user selects create run create function then check if user had an error and if they would like to make another interaction.
+		create
+		Error=$?
+		if [[ $Error -eq 1 && $interactive = "Y" ]]; then #check if program found an error and ask if user wants to try again
+			read -p "Error encountered would you like to try again (yes/no)? " loopBack
+			Error=1
+		elif [[ $interactive = "Y" && $Error -eq 0 ]]; then
+			read -p "Would you like to do another interaction (yes/no)? " loopBack
+			Error=0
+		else
+			loopBack="no" #if running in non-interactive don't repeat loop.
+
+		fi
+
+
+
+	elif [ "$paramTwo" = "insert" ]; then #if user selects insert run insert function.
+		insert
+		Error=$?
+		if [[ $Error -eq 1 && $interactive = "Y" ]]; then
+			read -p "Error encountered would you like to try again (yes/no)? " loopBack
+			Error=1
+		elif [[ $interactive = "Y" && $Error -eq 0 ]]; then
+			read -p "Would you like to do another interaction (yes/no)? " loopBack
+			Error=0
+		else
+			loopBack="no"
+
+		fi
+
+	elif [ "$paramTwo" = "display" ]; then #if user selects display run display function then check.
+		display
+		Error=$?
+		if [[ $Error -eq 1 && $interactive = "Y" ]]; then
+			read -p "Error encountered would you like to try again (yes/no)? " loopBack
+			Error=1
+		elif [[ $interactive = "Y" && $Error -eq 0 ]]; then
+			read -p "Would you like to do another interaction (yes/no)? " loopBack
+			Error=0
+		else
+			loopBack="no"
+
+		fi
+
+	elif [ "$paramTwo" = "delete" ]; then #if user selects delete run delete function then check.
+		delete
+		Error=$?
+		if [[ $Error -eq 1 && $interactive = "Y" ]]; then #if error encountered.
+			read -p "Error encountered would you like to try again (yes/no)? " loopBack
+			Error=1
+		elif [[ $interactive = "Y" && $Error -eq 0 ]]; then #if error not encountered.
+			read -p "Would you like to do another interaction (yes/no)? " loopBack
+			Error=0
+		else
+			loopBack="no"
+
+		fi
+
+	elif [ "$paramTwo" = "count" ]; then #if user selects count run count function .
+		Error=$?
+		count
+		if [[ $Error -eq 1 && $interactive = "Y" ]]; then #if error encountered.
+			read -p "Error encountered would you like to try again (yes/no)? " loopBack
+			Error=1
+		elif [[ $interactive = "Y" && $Error -eq 0 ]]; then #if no error encountered.
+			read -p "Would you like to do another interaction (yes/no)? " loopBack
+			Error=0
+		else
+			loopBack="no"
+
+		fi
+
+	else
+		if [ $interactive = "Y" ]; then #if running in interactive and a non-valid command to run script is found then output error and ask if user would like to try again.
+			read -p "Not a valid command to run script want to try again (yes/no)? " loopBack
+			Error=1
+		else
+			echo not a valid command to run script #if non-valid param given while running script in non-interative mode.
+			Error=1
+			loopBack="no"
+		fi
+
+	fi
+	while [[ ! $loopBack = "yes" && ! $loopBack = "no" ]]; do #if when asked user input something other then yes or no when asked if they want to repeat then keep asking.
+		read -p "please answer (yes/no). " loopBack
+	done
+done
+exit $Error #after exiting loop exit the program with whatever it's final return val was 1 for error 0 or success.
+
